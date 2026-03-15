@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+frontend/node_modules/
+
+# hardhat build output
+artifacts/
+cache/
+typechain-types/
+
+# environment
+.env
+
+# editor & OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# claude code
+.claude/
+
+# deployment artifacts
+deployment.json
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# academic docs (not part of source)
+*.pdf
+Milestone2_*.md

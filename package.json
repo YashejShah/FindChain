@@ -1,0 +1,27 @@
+{
+  "name": "findchain",
+  "version": "1.0.0",
+  "description": "AI-Powered Decentralized Lost & Found System",
+  "scripts": {
+    "compile": "npx hardhat compile",
+    "test": "npx hardhat test",
+    "blockchain": "npx hardhat node",
+    "deploy:local": "npx hardhat run scripts/deploy.js --network localhost",
+    "deploy:sepolia": "npx hardhat run scripts/deploy.js --network sepolia",
+    "test-live": "npx hardhat run scripts/test-live.js",
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "setup": "npm install && cd frontend && npm install && cd .. && npx hardhat compile"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0"
+  },
+  "keywords": ["blockchain", "ai", "lost-and-found", "ethereum", "ipfs", "decentralized"],
+  "author": "Yashej",
+  "license": "MIT"
+}
