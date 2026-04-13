@@ -26,6 +26,21 @@
 
 </div>
 
+![FindChain Features](screenshots/features.png)
+
+---
+
+## Features
+
+- **AI Visual Matching** — ResNet50 convolutional neural network with cosine similarity scoring for automatic item detection
+- **Blockchain Trust** — Immutable item registration on Ethereum with tamper-proof status tracking and event logging
+- **Escrow Rewards** — ETH bounties locked in smart contracts and auto-released upon verified match confirmation
+- **Reputation System** — On-chain 0-10,000 score incentivizing honest behavior with governance participation thresholds
+- **DAO Dispute Resolution** — Community voting with 3-day period where high-reputation members resolve contested matches
+- **IPFS Storage** — Decentralized, content-addressed image storage via Pinata — permanent and tamper-evident
+- **Interactive Map** — Leaflet-based map view with real GPS markers for all reported items
+- **Analytics Dashboard** — Charts for monthly trends, category breakdown, resolution rates, and recent activity
+
 ---
 
 ## The Problem with Traditional Lost & Found
@@ -59,9 +74,13 @@ FindChain replaces all of that with a unified system: AI matches items by visual
     └─ Contract finalizes outcome — no admin override
 ```
 
+![How it works](screenshots/workflow.png)
+
 ---
 
 ## Architecture
+
+![System Architecture](screenshots/architecture.png)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -114,6 +133,8 @@ The AI service exposes a clean REST API for the frontend and contract to consume
 ---
 
 ## Smart Contract — `FindChain.sol`
+
+![Smart Contract](screenshots/smart-contract.png)
 
 Deployed on Ethereum Sepolia. Built with OpenZeppelin's `Ownable` and `ReentrancyGuard`.
 
@@ -186,6 +207,20 @@ Handles everything automatically: dependency install, contract compilation, unit
 
 ---
 
+### Quick Start (Mac / Linux)
+
+```bash
+chmod +x setup.sh
+./setup.sh
+
+# then in separate terminals:
+npx hardhat node
+npx hardhat run scripts/deploy.js --network localhost
+cd frontend && npm run dev
+```
+
+---
+
 ### Manual Setup
 
 ```bash
@@ -212,6 +247,21 @@ npx hardhat run scripts/deploy.js --network localhost
 # 7. Start frontend         [Terminal 3]
 cd frontend && npm run dev
 ```
+
+---
+
+### MetaMask Setup
+
+Once the frontend is running, add the local Hardhat network to MetaMask:
+
+| Setting | Value |
+|---------|-------|
+| Network Name | Hardhat Local |
+| RPC URL | `http://127.0.0.1:8545` |
+| Chain ID | `1337` |
+| Symbol | ETH |
+
+Import any Hardhat test account using the private keys printed in the hardhat node terminal. Each account has 10,000 test ETH.
 
 ---
 
@@ -269,9 +319,18 @@ The live simulation runs end-to-end: deploys the contract, registers 3 users, re
 | **Dev Framework** | Hardhat, ethers.js v6 |
 | **AI / ML** | TensorFlow, Keras, ResNet50 |
 | **AI Backend** | Python Flask |
-| **Frontend** | React 18, Vite 5, Recharts, Lucide |
+| **Frontend** | React 18, Vite 5, Leaflet, Recharts, Lucide |
 | **Storage** | IPFS via Pinata |
 | **Wallet** | MetaMask |
+
+---
+
+## Contributors
+
+| Name | GitHub | Role |
+|------|--------|------|
+| Yashej Shah | [@YashejShah](https://github.com/YashejShah) | Smart contracts, AI service, frontend, deployment scripts |
+| Tanu Somani | [@Tanu-somani](https://github.com/Tanu-somani) | Problem research, use-case analysis, testing, design documentation |
 
 ---
 
