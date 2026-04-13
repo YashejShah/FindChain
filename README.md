@@ -202,6 +202,15 @@ The live test runs through the complete flow: deploy contract, register 3 users,
 
 ---
 
+## Contributors
+
+| Name | GitHub | Role |
+|------|--------|------|
+| Yashej Shah | [@YashejShah](https://github.com/YashejShah) | Smart contracts, frontend, AI service |
+| Tanu Somani | [@Tanu-somani](https://github.com/Tanu-somani) | Research, testing, design docs |
+
+---
+
 ## License
 
 MIT

@@ -22,6 +22,6 @@
     "hardhat": "^2.19.0"
   },
   "keywords": ["blockchain", "ai", "lost-and-found", "ethereum", "ipfs", "decentralized"],
-  "author": "Yashej",
+  "author": "FindChain Team",
   "license": "MIT"
 }
