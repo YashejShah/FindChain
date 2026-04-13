@@ -9,6 +9,8 @@ import {
   RefreshCw, ThumbsUp, ThumbsDown, Hash, Wallet, CircleDot
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 // ============ HARDHAT TEST ACCOUNTS ============
 const ACCOUNTS = {
@@ -21,23 +23,23 @@ const ACCOUNTS = {
 // ============ MOCK DATA (with real Hardhat addresses + transaction history) ============
 const MOCK_ITEMS = [
   // Resolved: Alice lost iPhone → Bob found it → 92% AI match → Confirmed → 0.49 ETH paid to Bob
-  { id: 1, type: "lost", title: "iPhone 15 Pro Max", category: "electronics", description: "Space Black iPhone 15 Pro Max with cracked screen protector, blue Spigen case", location: "Central Park, NYC", lat: 40.785091, lng: -73.968285, reward: "0.5", status: "resolved", reporter: "0x7099...79C8", reporterName: "Alice", image: "📱", timestamp: Date.now() - 86400000 * 3, similarity: 92 },
-  { id: 2, type: "found", title: "Black Smartphone with Blue Case", category: "electronics", description: "Found black smartphone near Bethesda Fountain, has a blue Spigen case", location: "Bethesda Fountain, NYC", lat: 40.774, lng: -73.971, reward: "0", status: "resolved", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "📱", timestamp: Date.now() - 86400000 * 2, similarity: 92 },
+  { id: 1, type: "lost", title: "iPhone 15 Pro Max", category: "electronics", description: "Space Black iPhone 15 Pro Max with cracked screen protector, blue Spigen case", location: "Bennett University, Greater Noida", lat: 28.4505, lng: 77.5840, reward: "0.5", status: "resolved", reporter: "0x7099...79C8", reporterName: "Alice", image: "📱", timestamp: Date.now() - 86400000 * 3, similarity: 92 },
+  { id: 2, type: "found", title: "Black Smartphone with Blue Case", category: "electronics", description: "Found black smartphone near library entrance, has a blue Spigen case", location: "Bennett Library, Greater Noida", lat: 28.4510, lng: 77.5830, reward: "0", status: "resolved", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "📱", timestamp: Date.now() - 86400000 * 2, similarity: 92 },
   // Resolved: Alice lost wallet → Charlie found it → 87% AI match → Confirmed → 0.245 ETH paid
-  { id: 3, type: "lost", title: "Louis Vuitton Wallet", category: "bags", description: "Brown Damier Ebene canvas wallet with initials 'YJ' embossed", location: "Times Square Subway", lat: 40.758, lng: -73.985, reward: "0.25", status: "resolved", reporter: "0x7099...79C8", reporterName: "Alice", image: "👛", timestamp: Date.now() - 86400000 * 7, similarity: 87 },
-  { id: 4, type: "found", title: "Brown Designer Wallet", category: "bags", description: "Louis Vuitton style wallet found on N train, has initials embossed", location: "N Train, 42nd St", lat: 40.756, lng: -73.987, reward: "0", status: "resolved", reporter: "0x90F7...9906", reporterName: "Charlie", image: "👛", timestamp: Date.now() - 86400000 * 6, similarity: 87 },
+  { id: 3, type: "lost", title: "Louis Vuitton Wallet", category: "bags", description: "Brown Damier Ebene canvas wallet with initials 'YJ' embossed", location: "Pari Chowk, Greater Noida", lat: 28.4675, lng: 77.5040, reward: "0.25", status: "resolved", reporter: "0x7099...79C8", reporterName: "Alice", image: "👛", timestamp: Date.now() - 86400000 * 7, similarity: 87 },
+  { id: 4, type: "found", title: "Brown Designer Wallet", category: "bags", description: "Louis Vuitton style wallet found in auto rickshaw, has initials embossed", location: "Knowledge Park III, Greater Noida", lat: 28.4720, lng: 77.5100, reward: "0", status: "resolved", reporter: "0x90F7...9906", reporterName: "Charlie", image: "👛", timestamp: Date.now() - 86400000 * 6, similarity: 87 },
   // Active: Alice's dog is missing
-  { id: 5, type: "lost", title: "Golden Retriever - Max", category: "pets", description: "Male golden retriever, 3yo, red collar with bone tag, very friendly, last seen near lake", location: "Prospect Park, Brooklyn", lat: 40.660, lng: -73.969, reward: "0.5", status: "active", reporter: "0x7099...79C8", reporterName: "Alice", image: "🐕", timestamp: Date.now() - 3600000 * 6, similarity: 0 },
+  { id: 5, type: "lost", title: "Golden Retriever - Max", category: "pets", description: "Male golden retriever, 3yo, red collar with bone tag, very friendly, last seen near park", location: "Surajpur Wetlands, Greater Noida", lat: 28.4870, lng: 77.5230, reward: "0.5", status: "active", reporter: "0x7099...79C8", reporterName: "Alice", image: "🐕", timestamp: Date.now() - 3600000 * 6, similarity: 0 },
   // Disputed: Alice lost MacBook → Charlie found laptop → 75% match → Alice disputed
-  { id: 6, type: "lost", title: "MacBook Pro 16\"", category: "electronics", description: "Space Gray M3 MacBook Pro, has a 'Hello World' sticker on lid", location: "Starbucks, Union Sq", lat: 40.736, lng: -73.991, reward: "1.0", status: "disputed", reporter: "0x7099...79C8", reporterName: "Alice", image: "💻", timestamp: Date.now() - 3600000 * 12, similarity: 75 },
-  { id: 7, type: "found", title: "Silver Laptop", category: "electronics", description: "Found a silver laptop left at a cafe table, no stickers visible", location: "Cafe near Union Sq", lat: 40.734, lng: -73.991, reward: "0", status: "disputed", reporter: "0x90F7...9906", reporterName: "Charlie", image: "💻", timestamp: Date.now() - 3600000 * 10, similarity: 75 },
+  { id: 6, type: "lost", title: "MacBook Pro 16\"", category: "electronics", description: "Space Gray M3 MacBook Pro, has a 'Hello World' sticker on lid", location: "Starbucks, GIP Mall, Noida", lat: 28.5672, lng: 77.3218, reward: "1.0", status: "disputed", reporter: "0x7099...79C8", reporterName: "Alice", image: "💻", timestamp: Date.now() - 3600000 * 12, similarity: 75 },
+  { id: 7, type: "found", title: "Silver Laptop", category: "electronics", description: "Found a silver laptop left at a cafe table, no stickers visible", location: "Cafe near Sector 18, Noida", lat: 28.5700, lng: 77.3250, reward: "0", status: "disputed", reporter: "0x90F7...9906", reporterName: "Charlie", image: "💻", timestamp: Date.now() - 3600000 * 10, similarity: 75 },
   // Active: Bob found keys
-  { id: 8, type: "found", title: "Car Keys with BMW Fob", category: "keys", description: "BMW key fob with house key and gym card attached, found on bench", location: "Bryant Park", lat: 40.754, lng: -73.984, reward: "0", status: "active", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "🔑", timestamp: Date.now() - 3600000 * 3, similarity: 0 },
+  { id: 8, type: "found", title: "Car Keys with BMW Fob", category: "keys", description: "BMW key fob with house key and gym card attached, found on bench", location: "Alpha 1 Market, Greater Noida", lat: 28.4745, lng: 77.5040, reward: "0", status: "active", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "🔑", timestamp: Date.now() - 3600000 * 3, similarity: 0 },
   // Active: Bob found passport
-  { id: 9, type: "found", title: "Indian Passport", category: "documents", description: "Indian passport found near check-in counter, blue cover", location: "JFK Terminal 4", lat: 40.641, lng: -73.778, reward: "0", status: "active", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "📄", timestamp: Date.now() - 86400000 * 1, similarity: 0 },
+  { id: 9, type: "found", title: "Indian Passport", category: "documents", description: "Indian passport found near check-in counter, blue cover", location: "IGI Airport Terminal 3, Delhi", lat: 28.5562, lng: 77.1000, reward: "0", status: "active", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "📄", timestamp: Date.now() - 86400000 * 1, similarity: 0 },
   // Matched: AirPods matched with Bob's find → 88% AI match → pending confirmation
-  { id: 10, type: "lost", title: "AirPods Pro 2nd Gen", category: "electronics", description: "White AirPods Pro with custom engraving 'YJ' on case", location: "Grand Central Station", lat: 40.753, lng: -73.977, reward: "0.15", status: "matched", reporter: "0xf39F...2266", reporterName: "Admin", image: "🎧", timestamp: Date.now() - 3600000 * 8, similarity: 88 },
-  { id: 11, type: "found", title: "White Earbuds Case", category: "electronics", description: "Found white Apple AirPods case near platform 7, has engraving", location: "Grand Central Platform 7", lat: 40.753, lng: -73.976, reward: "0", status: "matched", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "🎧", timestamp: Date.now() - 3600000 * 5, similarity: 88 },
+  { id: 10, type: "lost", title: "AirPods Pro 2nd Gen", category: "electronics", description: "White AirPods Pro with custom engraving 'YJ' on case", location: "Metro Station, Botanical Garden", lat: 28.5644, lng: 77.3340, reward: "0.15", status: "matched", reporter: "0xf39F...2266", reporterName: "Admin", image: "🎧", timestamp: Date.now() - 3600000 * 8, similarity: 88 },
+  { id: 11, type: "found", title: "White Earbuds Case", category: "electronics", description: "Found white Apple AirPods case near platform, has engraving", location: "Noida Sector 52 Metro", lat: 28.5750, lng: 77.3390, reward: "0", status: "matched", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "🎧", timestamp: Date.now() - 3600000 * 5, similarity: 88 },
 ];
 
 const MOCK_MATCHES = [
@@ -1142,85 +1144,88 @@ export default function FindChainApp() {
     );
   };
 
-  const MapPage = () => (
-    <div style={styles.section}>
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4, letterSpacing: "-0.5px" }}>Map View</h1>
-      <p style={{ color: textSecondary, marginBottom: 24, fontSize: 14 }}>Items reported near you</p>
-      <div style={{
-        ...styles.card, height: 500, position: "relative", overflow: "hidden",
-        background: isDark ? "rgba(10,10,20,0.9)" : "rgba(240,242,245,0.9)",
-      }}>
-        {/* Map Background Pattern */}
-        <div style={{
-          position: "absolute", inset: 0,
-          backgroundImage: isDark
-            ? `radial-gradient(circle, ${accent}08 1px, transparent 1px)`
-            : `radial-gradient(circle, rgba(0,0,0,0.03) 1px, transparent 1px)`,
-          backgroundSize: "30px 30px",
-        }} />
+  const MapPage = () => {
+    const mapRef = useRef(null);
+    const mapInstanceRef = useRef(null);
 
-        {/* Map Markers */}
-        {MOCK_ITEMS.map((item, i) => {
-          const x = 15 + (i * 10) + Math.sin(i * 2) * 8;
-          const y = 15 + (i * 8) + Math.cos(i * 3) * 10;
-          return (
-            <div key={item.id} style={{
-              position: "absolute", left: `${x}%`, top: `${y}%`,
-              transform: "translate(-50%, -50%)", cursor: "pointer", zIndex: 10,
-            }}
-            onClick={() => { setSelectedItem(item); setPage("detail"); }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: "50%",
-                background: item.type === "lost" ? "rgba(239,68,68,0.2)" : "rgba(16,185,129,0.2)",
-                border: `2px solid ${item.type === "lost" ? "#ef4444" : "#10b981"}`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 18, boxShadow: `0 0 20px ${item.type === "lost" ? "#ef444440" : "#10b98140"}`,
-                transition: "transform 0.2s",
-              }}>
-                {item.image}
-              </div>
-              <div style={{
-                position: "absolute", top: "110%", left: "50%", transform: "translateX(-50%)",
-                background: cardBg, backdropFilter: "blur(8px)",
-                padding: "4px 8px", borderRadius: 6, fontSize: 10, whiteSpace: "nowrap",
-                border: `1px solid ${cardBorder}`, fontWeight: 600,
-              }}>
-                {item.title.slice(0, 20)}
-              </div>
+    useEffect(() => {
+      if (!mapRef.current || mapInstanceRef.current) return;
+      const map = L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true }).setView([28.50, 77.40], 11);
+      mapInstanceRef.current = map;
+
+      L.tileLayer(
+        isDark
+          ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        { attribution: '&copy; <a href="https://carto.com/">CARTO</a>', maxZoom: 19 }
+      ).addTo(map);
+
+      MOCK_ITEMS.forEach(item => {
+        const icon = L.divIcon({
+          className: "",
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+          html: `<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;background:${item.type === "lost" ? "rgba(239,68,68,0.25)" : "rgba(16,185,129,0.25)"};border:2px solid ${item.type === "lost" ? "#ef4444" : "#10b981"};box-shadow:0 0 12px ${item.type === "lost" ? "#ef444450" : "#10b98150"};cursor:pointer">${item.image}</div>`,
+        });
+        const marker = L.marker([item.lat, item.lng], { icon }).addTo(map);
+        marker.bindPopup(`
+          <div style="font-family:DM Sans,sans-serif;min-width:180px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:22px">${item.image}</span>
+              <strong style="font-size:14px">${item.title}</strong>
             </div>
-          );
-        })}
+            <div style="font-size:12px;color:#666;margin-bottom:4px">${item.location}</div>
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:4px;color:#fff;background:${item.type === "lost" ? "#ef4444" : "#10b981"}">${item.type}</span>
+              <span style="font-size:11px;color:#888">${item.status}</span>
+            </div>
+            ${item.reward !== "0" ? `<div style="font-size:12px;font-weight:600;color:#f59e0b">Reward: ${item.reward} ETH</div>` : ""}
+          </div>
+        `);
+      });
 
-        <div style={{
-          position: "absolute", bottom: 16, right: 16, zIndex: 20,
-          display: "flex", gap: 8,
-        }}>
-          {[
-            { color: "#ef4444", label: "Lost" },
-            { color: "#10b981", label: "Found" },
-          ].map((l, i) => (
-            <span key={i} style={{
-              ...styles.badge(l.color), background: cardBg,
-              backdropFilter: "blur(8px)", border: `1px solid ${cardBorder}`,
-            }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color }} /> {l.label}
-            </span>
-          ))}
-        </div>
+      setTimeout(() => map.invalidateSize(), 200);
+      return () => { map.remove(); mapInstanceRef.current = null; };
+    }, []);
 
-        <div style={{
-          position: "absolute", top: 16, left: 16, zIndex: 20,
-          background: cardBg, backdropFilter: "blur(8px)",
-          padding: "10px 16px", borderRadius: 12,
-          border: `1px solid ${cardBorder}`, fontSize: 12, color: textSecondary,
-          display: "flex", alignItems: "center", gap: 6,
-        }}>
-          <Globe size={14} color={accent} />
-          Showing {MOCK_ITEMS.length} items • Click markers for details
+    return (
+      <div style={styles.section}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4, letterSpacing: "-0.5px" }}>Map View</h1>
+        <p style={{ color: textSecondary, marginBottom: 24, fontSize: 14 }}>Items reported near you</p>
+        <div style={{ ...styles.card, height: 500, position: "relative", overflow: "hidden", borderRadius: 16 }}>
+          <div ref={mapRef} style={{ height: "100%", width: "100%", borderRadius: 16 }} />
+
+          <div style={{
+            position: "absolute", bottom: 16, right: 16, zIndex: 1000,
+            display: "flex", gap: 8,
+          }}>
+            {[
+              { color: "#ef4444", label: "Lost" },
+              { color: "#10b981", label: "Found" },
+            ].map((l, i) => (
+              <span key={i} style={{
+                ...styles.badge(l.color), background: cardBg,
+                backdropFilter: "blur(8px)", border: `1px solid ${cardBorder}`,
+              }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: l.color }} /> {l.label}
+              </span>
+            ))}
+          </div>
+
+          <div style={{
+            position: "absolute", top: 16, left: 16, zIndex: 1000,
+            background: cardBg, backdropFilter: "blur(8px)",
+            padding: "10px 16px", borderRadius: 12,
+            border: `1px solid ${cardBorder}`, fontSize: 12, color: textSecondary,
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <Globe size={14} color={accent} />
+            Showing {MOCK_ITEMS.length} items • Click markers for details
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // ============ CHAT OVERLAY ============
   const ChatOverlay = () => {
