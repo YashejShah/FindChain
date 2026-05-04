@@ -11,6 +11,10 @@ import {
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { ethers } from "ethers";
+import CONTRACT_ABI from "./contractABI.json";
+
+const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 // ============ HARDHAT TEST ACCOUNTS ============
 const ACCOUNTS = {
@@ -122,12 +126,37 @@ export default function FindChainApp() {
   const [walletAddress, setWalletAddress] = useState("");
   const [animateIn, setAnimateIn] = useState(false);
 
+  const getContract = async (needsSigner = false) => {
+    if (typeof window.ethereum === "undefined") throw new Error("MetaMask not installed");
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    if (needsSigner) {
+      const signer = await provider.getSigner();
+      return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+    }
+    return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+  };
+
   const connectWallet = async () => {
     if (isConnected) { setIsConnected(false); setWalletAddress(""); return; }
     if (typeof window.ethereum !== "undefined") {
       try {
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        if (accounts.length > 0) { setWalletAddress(accounts[0]); setIsConnected(true); }
+        if (accounts.length > 0) {
+          setWalletAddress(accounts[0]);
+          setIsConnected(true);
+          // Auto-register if not registered
+          try {
+            const contract = await getContract(true);
+            const profile = await contract.getUserProfile(accounts[0]);
+            if (!profile.isRegistered) {
+              const tx = await contract.registerUser();
+              await tx.wait();
+            }
+          } catch (regErr) {
+            // Ignore if already registered or contract not deployed
+            console.log("Registration check:", regErr.message);
+          }
+        }
       } catch (err) { alert("Wallet connection rejected"); }
     } else {
       alert("MetaMask not detected. Please install MetaMask to connect your wallet.");
@@ -674,13 +703,52 @@ export default function FindChainApp() {
       reader.readAsDataURL(file);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
+      if (!isConnected) { alert("Please connect your wallet first"); return; }
       if (!imagePreview) { alert("Please upload an item photo"); return; }
       if (!formData.title.trim()) { alert("Please enter an item title"); return; }
       if (!formData.description.trim()) { alert("Please enter a description"); return; }
       if (!formData.location.trim()) { alert("Please enter a location"); return; }
+
       setSubmitted(true);
-      setTimeout(() => { setSubmitted(false); setImagePreview(null); setFileName(""); setFormData({ title: "", description: "", category: "electronics", location: "", reward: "0" }); }, 3000);
+      try {
+        const contract = await getContract(true);
+        const ipfsImageHash = "Qm" + Array.from(crypto.getRandomValues(new Uint8Array(22))).map(b => b.toString(16).padStart(2, "0")).join("");
+        const ipfsMetaHash = "Qm" + Array.from(crypto.getRandomValues(new Uint8Array(22))).map(b => b.toString(16).padStart(2, "0")).join("");
+        const lat = Math.round(28.45 * 1e6);
+        const lng = Math.round(77.58 * 1e6);
+
+        let tx;
+        if (reportType === "lost") {
+          const rewardWei = formData.reward && parseFloat(formData.reward) > 0
+            ? ethers.parseEther(formData.reward)
+            : 0n;
+          tx = await contract.reportLostItem(
+            formData.title, formData.description, formData.category,
+            ipfsImageHash, ipfsMetaHash, formData.location, lat, lng,
+            { value: rewardWei }
+          );
+        } else {
+          tx = await contract.reportFoundItem(
+            formData.title, formData.description, formData.category,
+            ipfsImageHash, ipfsMetaHash, formData.location, lat, lng
+          );
+        }
+        await tx.wait();
+        alert(`Item reported on-chain! Tx: ${tx.hash.slice(0, 10)}...`);
+        setImagePreview(null); setFileName("");
+        setFormData({ title: "", description: "", category: "electronics", location: "", reward: "0" });
+      } catch (err) {
+        console.error(err);
+        if (err.message?.includes("user rejected")) {
+          alert("Transaction rejected in wallet");
+        } else if (err.message?.includes("Not registered")) {
+          alert("Please register first — reconnect your wallet");
+        } else {
+          alert("Transaction failed: " + (err.reason || err.message || "Unknown error"));
+        }
+      }
+      setSubmitted(false);
     };
 
     return (
@@ -1179,7 +1247,22 @@ export default function FindChainApp() {
                     <MessageCircle size={14} /> Contact
                   </button>
                   <button style={{ ...styles.btn(false), flex: 1, justifyContent: "center" }}
-                    onClick={() => alert(`Match confirmed! ${item.reward !== "0" ? item.reward + " ETH released from escrow to finder." : "No reward attached."}`)}>
+                    onClick={async () => {
+                      if (!isConnected) { alert("Connect wallet first"); return; }
+                      try {
+                        const contract = await getContract(true);
+                        const matchData = MOCK_MATCHES.find(m => m.lostId === item.id || m.foundId === item.id);
+                        if (matchData) {
+                          const tx = await contract.confirmMatch(matchData.id);
+                          await tx.wait();
+                          alert(`Match confirmed on-chain! Tx: ${tx.hash.slice(0, 10)}...`);
+                        } else {
+                          alert("No on-chain match found for this item");
+                        }
+                      } catch (err) {
+                        alert("Confirm failed: " + (err.reason || err.message || "Unknown error"));
+                      }
+                    }}>
                     <CheckCircle2 size={14} /> Confirm
                   </button>
                 </div>
