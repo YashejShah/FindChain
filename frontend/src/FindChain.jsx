@@ -1250,9 +1250,62 @@ export default function FindChainApp() {
     </div>
   );
 
-  const ProfilePage = () => (
+  const ProfilePage = () => {
+    const [profile, setProfile] = useState(null);
+    const [myItems, setMyItems] = useState([]);
+
+    useEffect(() => {
+      if (!isConnected || !walletAddress) return;
+      (async () => {
+        try {
+          const contract = await getContract(false);
+          const p = await contract.getUserProfile(walletAddress);
+          setProfile({
+            reputation: Number(p[0]),
+            itemsReported: Number(p[1]),
+            itemsResolved: Number(p[2]),
+            successfulReturns: Number(p[3]),
+            totalRewardsEarned: ethers.formatEther(p[4]),
+            totalRewardsPosted: ethers.formatEther(p[5]),
+            registeredAt: Number(p[6]),
+            isRegistered: p[7],
+          });
+          // Fetch user's items
+          const userItemIds = await contract.getUserItems(walletAddress);
+          const items = [];
+          for (const id of userItemIds) {
+            try {
+              const item = await contract.getItem(Number(id));
+              items.push({
+                id: 1000 + Number(id), chainId: Number(id),
+                type: Number(item.itemType) === 0 ? "lost" : "found",
+                title: item.title, category: item.category, description: item.description,
+                location: item.location, lat: Number(item.latitude) / 1e6, lng: Number(item.longitude) / 1e6,
+                reward: ethers.formatEther(item.reward),
+                status: ["active", "matched", "resolved", "expired", "disputed"][Number(item.status)] || "active",
+                reporter: item.reporter.slice(0, 6) + "..." + item.reporter.slice(-4),
+                reporterName: "You", image: "📦",
+                timestamp: Number(item.timestamp) * 1000,
+                similarity: Number(item.aiSimilarityScore),
+              });
+            } catch {}
+          }
+          setMyItems(items);
+        } catch (err) { console.log("Profile fetch:", err.message); }
+      })();
+    }, [isConnected, walletAddress]);
+
+    const days = profile ? Math.floor((Date.now() / 1000 - profile.registeredAt) / 86400) : 0;
+
+    return (
     <div style={styles.section}>
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 28, letterSpacing: "-0.5px" }}>Your Profile</h1>
+      {!isConnected ? (
+        <div style={{ ...styles.card, textAlign: "center", padding: 40 }}>
+          <Wallet size={32} color={accent} style={{ marginBottom: 12, opacity: 0.6 }} />
+          <p style={{ fontWeight: 600 }}>Connect wallet to view profile</p>
+        </div>
+      ) : (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
         {/* Profile Card */}
         <div style={styles.card}>
@@ -1266,10 +1319,10 @@ export default function FindChainApp() {
               <User size={32} color="#000" />
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "monospace", color: accent }}>
-              {MOCK_USER.address.slice(0, 10)}...{MOCK_USER.address.slice(-8)}
+              {walletAddress.slice(0, 10)}...{walletAddress.slice(-8)}
             </div>
             <div style={{ fontSize: 12, color: textSecondary, marginTop: 4 }}>
-              Joined {MOCK_USER.joinedDaysAgo} days ago
+              Joined {days} days ago
             </div>
           </div>
 
@@ -1277,14 +1330,14 @@ export default function FindChainApp() {
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 600 }}>Reputation Score</span>
-              <span style={{ fontSize: 18, fontWeight: 800, color: accent }}>{MOCK_USER.reputation}</span>
+              <span style={{ fontSize: 18, fontWeight: 800, color: accent }}>{profile?.reputation || 500}</span>
             </div>
             <div style={{
               height: 8, borderRadius: 4, background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
               overflow: "hidden",
             }}>
               <div style={{
-                height: "100%", borderRadius: 4, width: `${(MOCK_USER.reputation / 10000) * 100}%`,
+                height: "100%", borderRadius: 4, width: `${((profile?.reputation || 500) / 10000) * 100}%`,
                 background: `linear-gradient(90deg, ${accent}, ${accent2})`,
                 transition: "width 1s ease",
               }} />
@@ -1298,10 +1351,10 @@ export default function FindChainApp() {
           {/* Stats Grid */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {[
-              { label: "Items Reported", value: MOCK_USER.itemsReported, color: accent },
-              { label: "Items Resolved", value: MOCK_USER.itemsResolved, color: "#10b981" },
-              { label: "Successful Returns", value: MOCK_USER.successfulReturns, color: accent2 },
-              { label: "Rewards Earned", value: `${MOCK_USER.rewardsEarned} ETH`, color: "#8b5cf6" },
+              { label: "Items Reported", value: profile?.itemsReported || 0, color: accent },
+              { label: "Items Resolved", value: profile?.itemsResolved || 0, color: "#10b981" },
+              { label: "Successful Returns", value: profile?.successfulReturns || 0, color: accent2 },
+              { label: "Rewards Earned", value: `${profile?.totalRewardsEarned || "0"} ETH`, color: "#8b5cf6" },
             ].map((s, i) => (
               <div key={i} style={{
                 padding: 14, borderRadius: 12,
@@ -1361,21 +1414,28 @@ export default function FindChainApp() {
 
         {/* Your Items */}
         <div style={{ ...styles.card, gridColumn: "1 / -1" }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Your Reported Items</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
-            {MOCK_ITEMS.filter(i => i.reporter.startsWith("0x7099")).map(item => (
-              <ItemCard key={item.id} item={item} />
-            ))}
-          </div>
+          <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Your Reported Items ({myItems.length})</h3>
+          {myItems.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 32, color: textSecondary }}>
+              <Package size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+              <p>No items reported yet. Go to Report to add one.</p>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 12 }}>
+              {myItems.map(item => <ItemCard key={item.id} item={item} />)}
+            </div>
+          )}
         </div>
       </div>
+      )}
     </div>
-  );
+    );
+  };
 
   const DetailPage = () => {
     if (!selectedItem) return <div style={styles.section}><p>No item selected</p></div>;
     const item = selectedItem;
-    const matchedItem = MOCK_ITEMS.find(i =>
+    const matchedItem = allItems.find(i =>
       i.id !== item.id && i.category === item.category && i.type !== item.type
     );
 
