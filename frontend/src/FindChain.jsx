@@ -24,48 +24,20 @@ const ACCOUNTS = {
   charlie: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",  // Community voter
 };
 
-// ============ MOCK DATA (with real Hardhat addresses + transaction history) ============
-const MOCK_ITEMS = [
-  // Resolved: Alice lost iPhone → Bob found it → 92% AI match → Confirmed → 0.49 ETH paid to Bob
-  { id: 1, type: "lost", title: "iPhone 15 Pro Max", category: "electronics", description: "Space Black iPhone 15 Pro Max with cracked screen protector, blue Spigen case", location: "Bennett University, Greater Noida", lat: 28.4505, lng: 77.5840, reward: "0.5", status: "resolved", reporter: "0x7099...79C8", reporterName: "Alice", image: "📱", timestamp: Date.now() - 86400000 * 3, similarity: 92 },
-  { id: 2, type: "found", title: "Black Smartphone with Blue Case", category: "electronics", description: "Found black smartphone near library entrance, has a blue Spigen case", location: "Bennett Library, Greater Noida", lat: 28.4510, lng: 77.5830, reward: "0", status: "resolved", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "📱", timestamp: Date.now() - 86400000 * 2, similarity: 92 },
-  // Resolved: Alice lost wallet → Charlie found it → 87% AI match → Confirmed → 0.245 ETH paid
-  { id: 3, type: "lost", title: "Louis Vuitton Wallet", category: "bags", description: "Brown Damier Ebene canvas wallet with initials 'YJ' embossed", location: "Pari Chowk, Greater Noida", lat: 28.4675, lng: 77.5040, reward: "0.25", status: "resolved", reporter: "0x7099...79C8", reporterName: "Alice", image: "👛", timestamp: Date.now() - 86400000 * 7, similarity: 87 },
-  { id: 4, type: "found", title: "Brown Designer Wallet", category: "bags", description: "Louis Vuitton style wallet found in auto rickshaw, has initials embossed", location: "Knowledge Park III, Greater Noida", lat: 28.4720, lng: 77.5100, reward: "0", status: "resolved", reporter: "0x90F7...9906", reporterName: "Charlie", image: "👛", timestamp: Date.now() - 86400000 * 6, similarity: 87 },
-  // Active: Alice's dog is missing
-  { id: 5, type: "lost", title: "Golden Retriever - Max", category: "pets", description: "Male golden retriever, 3yo, red collar with bone tag, very friendly, last seen near park", location: "Surajpur Wetlands, Greater Noida", lat: 28.4870, lng: 77.5230, reward: "0.5", status: "active", reporter: "0x7099...79C8", reporterName: "Alice", image: "🐕", timestamp: Date.now() - 3600000 * 6, similarity: 0 },
-  // Disputed: Alice lost MacBook → Charlie found laptop → 75% match → Alice disputed
-  { id: 6, type: "lost", title: "MacBook Pro 16\"", category: "electronics", description: "Space Gray M3 MacBook Pro, has a 'Hello World' sticker on lid", location: "Starbucks, GIP Mall, Noida", lat: 28.5672, lng: 77.3218, reward: "1.0", status: "disputed", reporter: "0x7099...79C8", reporterName: "Alice", image: "💻", timestamp: Date.now() - 3600000 * 12, similarity: 75 },
-  { id: 7, type: "found", title: "Silver Laptop", category: "electronics", description: "Found a silver laptop left at a cafe table, no stickers visible", location: "Cafe near Sector 18, Noida", lat: 28.5700, lng: 77.3250, reward: "0", status: "disputed", reporter: "0x90F7...9906", reporterName: "Charlie", image: "💻", timestamp: Date.now() - 3600000 * 10, similarity: 75 },
-  // Active: Bob found keys
-  { id: 8, type: "found", title: "Car Keys with BMW Fob", category: "keys", description: "BMW key fob with house key and gym card attached, found on bench", location: "Alpha 1 Market, Greater Noida", lat: 28.4745, lng: 77.5040, reward: "0", status: "active", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "🔑", timestamp: Date.now() - 3600000 * 3, similarity: 0 },
-  // Active: Bob found passport
-  { id: 9, type: "found", title: "Indian Passport", category: "documents", description: "Indian passport found near check-in counter, blue cover", location: "IGI Airport Terminal 3, Delhi", lat: 28.5562, lng: 77.1000, reward: "0", status: "active", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "📄", timestamp: Date.now() - 86400000 * 1, similarity: 0 },
-  // Matched: AirPods matched with Bob's find → 88% AI match → pending confirmation
-  { id: 10, type: "lost", title: "AirPods Pro 2nd Gen", category: "electronics", description: "White AirPods Pro with custom engraving 'YJ' on case", location: "Metro Station, Botanical Garden", lat: 28.5644, lng: 77.3340, reward: "0.15", status: "matched", reporter: "0xf39F...2266", reporterName: "Admin", image: "🎧", timestamp: Date.now() - 3600000 * 8, similarity: 88 },
-  { id: 11, type: "found", title: "White Earbuds Case", category: "electronics", description: "Found white Apple AirPods case near platform, has engraving", location: "Noida Sector 52 Metro", lat: 28.5750, lng: 77.3390, reward: "0", status: "matched", reporter: "0x3C44...0aa3", reporterName: "Bob", image: "🎧", timestamp: Date.now() - 3600000 * 5, similarity: 88 },
-];
-
-const MOCK_MATCHES = [
-  // Resolved matches with reward payouts
-  { id: 1, lostId: 1, foundId: 2, score: 92, status: "confirmed", timestamp: Date.now() - 86400000 * 2 },
-  { id: 2, lostId: 3, foundId: 4, score: 87, status: "confirmed", timestamp: Date.now() - 86400000 * 5 },
-  // Pending match
-  { id: 3, lostId: 10, foundId: 11, score: 88, status: "pending", timestamp: Date.now() - 3600000 * 4 },
-  // Disputed match
-  { id: 4, lostId: 6, foundId: 7, score: 75, status: "disputed", timestamp: Date.now() - 3600000 * 8 },
-];
+// ============ DATA ============
+const MOCK_ITEMS = [];
+const MOCK_MATCHES = [];
 
 const MOCK_USER = {
   address: ACCOUNTS.alice,
-  name: "Alice",
-  reputation: 550,
-  itemsReported: 5,
-  itemsResolved: 2,
+  name: "User",
+  reputation: 500,
+  itemsReported: 0,
+  itemsResolved: 0,
   successfulReturns: 0,
   rewardsEarned: "0",
-  rewardsPosted: "2.25",
-  joinedDaysAgo: 14,
+  rewardsPosted: "0",
+  joinedDaysAgo: 0,
 };
 
 const ANALYTICS_DATA = {
@@ -78,12 +50,16 @@ const ANALYTICS_DATA = {
     { month: "Feb", lost: 130, found: 125, resolved: 108 },
   ],
   categories: [
-    { name: "Electronics", value: 35, color: "#00f0ff" },
-    { name: "Documents", value: 20, color: "#f59e0b" },
-    { name: "Bags", value: 18, color: "#8b5cf6" },
-    { name: "Keys", value: 12, color: "#10b981" },
-    { name: "Pets", value: 8, color: "#ef4444" },
-    { name: "Other", value: 7, color: "#6b7280" },
+    { name: "Electronics", value: 28, color: "#00f0ff" },
+    { name: "Documents", value: 16, color: "#f59e0b" },
+    { name: "Bags & Wallets", value: 14, color: "#8b5cf6" },
+    { name: "Keys", value: 10, color: "#10b981" },
+    { name: "Pets", value: 6, color: "#ef4444" },
+    { name: "Wearables", value: 8, color: "#6366f1" },
+    { name: "Vehicles", value: 5, color: "#ec4899" },
+    { name: "Sports Gear", value: 4, color: "#14b8a6" },
+    { name: "Medical", value: 3, color: "#f97316" },
+    { name: "Other", value: 6, color: "#6b7280" },
   ],
   resolutionRate: [
     { day: "Mon", rate: 72 }, { day: "Tue", rate: 78 }, { day: "Wed", rate: 65 },
@@ -93,7 +69,9 @@ const ANALYTICS_DATA = {
 
 const CATEGORY_ICONS = {
   electronics: Smartphone, documents: FileText, jewelry: Gem, bags: Briefcase,
-  clothing: Package, keys: Key, pets: Dog, personal: Umbrella, all: Package,
+  clothing: Package, keys: Key, pets: Dog, personal: Umbrella,
+  wearables: CircleDot, vehicles: Zap, sports: Award, medical: Shield,
+  other: Package, all: Package,
 };
 
 const MOCK_MESSAGES = [
