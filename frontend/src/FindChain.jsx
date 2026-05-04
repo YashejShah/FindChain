@@ -156,6 +156,8 @@ export default function FindChainApp() {
             score: Number(m.similarityScore),
             status: m.confirmed ? "confirmed" : m.disputed ? "disputed" : "pending",
             timestamp: Number(m.timestamp) * 1000,
+            lostReporter: m.lostReporter?.toLowerCase(),
+            foundReporter: m.foundReporter?.toLowerCase(),
             onChain: true,
           });
         } catch { /* skip */ }
@@ -535,7 +537,7 @@ export default function FindChainApp() {
             display: "flex", alignItems: "center", gap: 6,
           }}>
             <Cpu size={14} color={accent} />
-            <span style={{ fontSize: 18, fontWeight: 800, color: accent }}>{match.score}%</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: accent }}>{match.score > 100 ? (match.score / 100).toFixed(1) : match.score}%</span>
             <span style={{ fontSize: 11, color: textSecondary }}>similarity</span>
           </div>
         </div>
@@ -561,44 +563,69 @@ export default function FindChainApp() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
-          {match.status === "pending" && (
-            <>
-              <button style={styles.btn(true)} onClick={() => setShowChat(true)}>
-                <MessageCircle size={14} /> Contact Finder
-              </button>
-              <button style={styles.btn(false)} onClick={async () => {
-                if (!isConnected) { alert("Connect wallet first"); return; }
-                try {
-                  const contract = await getContract(true);
-                  const tx = await contract.confirmMatch(match.id);
-                  await tx.wait();
-                  alert("Match confirmed! Reward released from escrow.");
-                  fetchOnChainMatches();
-                } catch (err) {
-                  alert("Confirm failed: " + (err.reason || err.message));
-                }
-              }}>
-                <CheckCircle2 size={14} /> Confirm Match
-              </button>
-              <button style={{ ...styles.btn(false), color: "#ef4444" }} onClick={async () => {
-                if (!isConnected) { alert("Connect wallet first"); return; }
-                try {
-                  const contract = await getContract(true);
-                  const tx = await contract.openDispute(match.id, "Item does not match", "QmDisputeEvidence");
-                  await tx.wait();
-                  alert("Dispute opened! Community voting begins.");
-                  fetchOnChainMatches();
-                } catch (err) {
-                  alert("Dispute failed: " + (err.reason || err.message));
-                }
-              }}>
-                <XCircle size={14} /> Dispute
-              </button>
-            </>
-          )}
+          {match.status === "pending" && (() => {
+            const w = walletAddress?.toLowerCase();
+            const isLostOwner = match.lostReporter && w === match.lostReporter;
+            const isFoundReporter = match.foundReporter && w === match.foundReporter;
+            const isParty = isLostOwner || isFoundReporter;
+            return (
+              <>
+                {isParty && (
+                  <button style={styles.btn(true)} onClick={() => setShowChat(true)}>
+                    <MessageCircle size={14} /> {isLostOwner ? "Contact Finder" : "Contact Owner"}
+                  </button>
+                )}
+                {isLostOwner && (
+                  <button style={styles.btn(false)} onClick={async () => {
+                    try {
+                      const contract = await getContract(true);
+                      const tx = await contract.confirmMatch(match.id);
+                      await tx.wait();
+                      alert("Match confirmed! Reward released from escrow.");
+                      fetchOnChainMatches(); fetchOnChainItems();
+                    } catch (err) {
+                      alert("Confirm failed: " + (err.reason || err.message));
+                    }
+                  }}>
+                    <CheckCircle2 size={14} /> Confirm & Release Reward
+                  </button>
+                )}
+                {isParty && (
+                  <button style={{ ...styles.btn(false), color: "#ef4444" }} onClick={async () => {
+                    try {
+                      const contract = await getContract(true);
+                      const tx = await contract.openDispute(match.id, "Item does not match", "QmDisputeEvidence");
+                      await tx.wait();
+                      alert("Dispute opened! Community voting begins.");
+                      fetchOnChainMatches();
+                    } catch (err) {
+                      alert("Dispute failed: " + (err.reason || err.message));
+                    }
+                  }}>
+                    <XCircle size={14} /> Dispute
+                  </button>
+                )}
+                {!isParty && isConnected && (
+                  <div style={{ fontSize: 13, color: textSecondary, fontStyle: "italic", display: "flex", alignItems: "center", gap: 6 }}>
+                    <Clock size={14} /> Waiting for owner to confirm
+                  </div>
+                )}
+                {!isConnected && (
+                  <div style={{ fontSize: 13, color: accent, fontWeight: 600 }}>
+                    Connect wallet to interact
+                  </div>
+                )}
+              </>
+            );
+          })()}
           {match.status === "confirmed" && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#10b981", fontWeight: 600, fontSize: 14 }}>
               <CheckCircle2 size={16} /> Resolved — Reward Released
+            </div>
+          )}
+          {match.status === "disputed" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#ef4444", fontWeight: 600, fontSize: 14 }}>
+              <AlertTriangle size={16} /> Disputed — Community Voting Active
             </div>
           )}
         </div>
