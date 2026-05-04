@@ -111,7 +111,7 @@ contract FindChain is Ownable, ReentrancyGuard {
     }
 
     modifier itemExists(uint256 _itemId) {
-        require(_itemId > 0 && _itemId < nextItemId, "Item does not exist");
+        require(_itemId < nextItemId, "Item does not exist");
         _;
     }
 
@@ -242,7 +242,7 @@ contract FindChain is Ownable, ReentrancyGuard {
         uint256 _lostItemId,
         uint256 _foundItemId,
         uint256 _similarityScore
-    ) external onlyOwner itemExists(_lostItemId) itemExists(_foundItemId) {
+    ) external onlyRegistered itemExists(_lostItemId) itemExists(_foundItemId) {
         require(items[_lostItemId].itemType == ItemType.Lost, "First item must be lost");
         require(items[_foundItemId].itemType == ItemType.Found, "Second item must be found");
         require(items[_lostItemId].status == ItemStatus.Active, "Lost item not active");
@@ -279,7 +279,7 @@ contract FindChain is Ownable, ReentrancyGuard {
      */
     function confirmMatch(uint256 _matchId) external nonReentrant {
         Match storage m = matches[_matchId];
-        require(m.matchId > 0, "Match does not exist");
+        require(m.timestamp > 0, "Match does not exist");
         require(!m.confirmed, "Already confirmed");
         require(!m.disputed, "Match is disputed");
         require(msg.sender == m.lostReporter, "Only lost item reporter can confirm");
@@ -327,7 +327,7 @@ contract FindChain is Ownable, ReentrancyGuard {
         string calldata _evidenceIpfsHash
     ) external onlyRegistered {
         Match storage m = matches[_matchId];
-        require(m.matchId > 0, "Match does not exist");
+        require(m.timestamp > 0, "Match does not exist");
         require(!m.confirmed, "Match already confirmed");
         require(!m.disputed, "Dispute already exists");
         require(

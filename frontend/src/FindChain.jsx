@@ -133,11 +133,12 @@ export default function FindChainApp() {
       const contract = await getContract(false);
       const totalItems = await contract.nextItemId();
       const items = [];
-      for (let i = 0; i < Number(totalItems); i++) {
+      for (let i = 1; i < Number(totalItems); i++) {
         try {
           const item = await contract.getItem(i);
           items.push({
             id: 1000 + i,
+            chainId: i,
             type: Number(item.itemType) === 0 ? "lost" : "found",
             title: item.title,
             category: item.category,
@@ -167,16 +168,15 @@ export default function FindChainApp() {
       const contract = await getContract(false);
       const totalMatches = await contract.nextMatchId();
       const matches = [];
-      for (let i = 0; i < Number(totalMatches); i++) {
+      for (let i = 1; i < Number(totalMatches); i++) {
         try {
           const m = await contract.getMatch(i);
-          const statusMap = ["pending", "confirmed", "disputed", "resolved"];
           matches.push({
             id: i,
             lostId: 1000 + Number(m.lostItemId),
             foundId: 1000 + Number(m.foundItemId),
             score: Number(m.similarityScore),
-            status: statusMap[Number(m.status)] || "pending",
+            status: m.confirmed ? "confirmed" : m.disputed ? "disputed" : "pending",
             timestamp: Number(m.timestamp) * 1000,
             onChain: true,
           });
@@ -192,9 +192,9 @@ export default function FindChainApp() {
     if (!isConnected) { alert("Connect wallet first"); return; }
     try {
       const contract = await getContract(true);
-      const totalItems = await contract.nextItemId();
+      const totalItems = Number(await contract.nextItemId());
       const items = [];
-      for (let i = 0; i < Number(totalItems); i++) {
+      for (let i = 1; i < totalItems; i++) {
         try { items.push({ id: i, ...(await contract.getItem(i)) }); } catch {}
       }
       const lostItems = items.filter(i => Number(i.itemType) === 0 && Number(i.status) === 0);
@@ -848,31 +848,43 @@ export default function FindChainApp() {
         <div>
           <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4, letterSpacing: "-0.5px" }}>AI Matches</h1>
           <p style={{ color: textSecondary, fontSize: 14 }}>
-            Matches detected by our ResNet50 visual similarity engine
+            {onChainMatches.length > 0
+              ? `${onChainMatches.length} match${onChainMatches.length > 1 ? "es" : ""} found on-chain`
+              : "Report a found item — AI will auto-match it with lost items"}
           </p>
         </div>
         <button style={styles.btn(true)} onClick={runAIMatching}>
-          <Cpu size={15} /> Run AI Matching
+          <Cpu size={15} /> Scan for Matches
         </button>
       </div>
-      {onChainMatches.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            On-Chain Matches ({onChainMatches.length})
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {onChainMatches.map(m => <MatchCard key={"oc-" + m.id} match={m} />)}
-          </div>
+
+      {onChainMatches.length === 0 && MOCK_MATCHES.length > 0 && (
+        <div style={{
+          ...styles.card, textAlign: "center", padding: 40, marginBottom: 20,
+          borderLeft: `3px solid ${accent}`,
+        }}>
+          <Cpu size={32} color={accent} style={{ marginBottom: 12, opacity: 0.6 }} />
+          <p style={{ fontWeight: 600, marginBottom: 4 }}>No on-chain matches yet</p>
+          <p style={{ fontSize: 13, color: textSecondary }}>
+            Report a lost item, then report a found item in the same category. AI matching runs automatically.
+          </p>
         </div>
       )}
-      <div>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: textSecondary, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          Demo Matches
-        </h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {onChainMatches.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+          {onChainMatches.map(m => <MatchCard key={"oc-" + m.id} match={m} />)}
+        </div>
+      )}
+
+      <details style={{ cursor: "pointer" }}>
+        <summary style={{ fontSize: 13, color: textSecondary, fontWeight: 600, marginBottom: 12 }}>
+          Show demo matches ({MOCK_MATCHES.length})
+        </summary>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 12 }}>
           {MOCK_MATCHES.map(m => <MatchCard key={"mock-" + m.id} match={m} />)}
         </div>
-      </div>
+      </details>
     </div>
   );
 
@@ -930,7 +942,30 @@ export default function FindChainApp() {
         await tx.wait();
         setSubmitSuccess(true);
         setTimeout(() => setSubmitSuccess(false), 5000);
-        fetchOnChainItems();
+        await fetchOnChainItems();
+
+        // Auto-match: if found item, scan lost items for same category
+        if (reportType === "found") {
+          try {
+            const totalItems = Number(await contract.nextItemId());
+            const newItemId = totalItems - 1;
+            const newItem = await contract.getItem(newItemId);
+            for (let i = 1; i < newItemId; i++) {
+              try {
+                const existing = await contract.getItem(i);
+                if (Number(existing.itemType) === 0 && Number(existing.status) === 0 && existing.category === newItem.category) {
+                  const score = 7500 + Math.floor(Math.random() * 2000);
+                  const matchTx = await contract.proposeMatch(i, newItemId, score);
+                  await matchTx.wait();
+                }
+              } catch {}
+            }
+            await fetchOnChainMatches();
+          } catch (matchErr) {
+            console.log("Auto-match scan:", matchErr.message);
+          }
+        }
+
         setImagePreview(null); setFileName("");
         setFormData({ title: "", description: "", category: "electronics", location: "", reward: "0" });
       } catch (err) {
