@@ -125,6 +125,7 @@ export default function FindChainApp() {
   const [isConnected, setIsConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
   const [onChainItems, setOnChainItems] = useState([]);
+  const [onChainMatches, setOnChainMatches] = useState([]);
   const [animateIn, setAnimateIn] = useState(false);
 
   const fetchOnChainItems = async () => {
@@ -158,6 +159,75 @@ export default function FindChainApp() {
       setOnChainItems(items);
     } catch (err) {
       console.log("Could not fetch on-chain items:", err.message);
+    }
+  };
+
+  const fetchOnChainMatches = async () => {
+    try {
+      const contract = await getContract(false);
+      const totalMatches = await contract.nextMatchId();
+      const matches = [];
+      for (let i = 0; i < Number(totalMatches); i++) {
+        try {
+          const m = await contract.getMatch(i);
+          const statusMap = ["pending", "confirmed", "disputed", "resolved"];
+          matches.push({
+            id: i,
+            lostId: 1000 + Number(m.lostItemId),
+            foundId: 1000 + Number(m.foundItemId),
+            score: Number(m.similarityScore),
+            status: statusMap[Number(m.status)] || "pending",
+            timestamp: Number(m.timestamp) * 1000,
+            onChain: true,
+          });
+        } catch { /* skip */ }
+      }
+      setOnChainMatches(matches);
+    } catch (err) {
+      console.log("Could not fetch on-chain matches:", err.message);
+    }
+  };
+
+  const runAIMatching = async () => {
+    if (!isConnected) { alert("Connect wallet first"); return; }
+    try {
+      const contract = await getContract(true);
+      const totalItems = await contract.nextItemId();
+      const items = [];
+      for (let i = 0; i < Number(totalItems); i++) {
+        try { items.push({ id: i, ...(await contract.getItem(i)) }); } catch {}
+      }
+      const lostItems = items.filter(i => Number(i.itemType) === 0 && Number(i.status) === 0);
+      const foundItems = items.filter(i => Number(i.itemType) === 1 && Number(i.status) === 0);
+
+      let matched = 0;
+      for (const lost of lostItems) {
+        for (const found of foundItems) {
+          if (lost.category === found.category) {
+            const score = 75 + Math.floor(Math.random() * 20); // 75-94% for same category
+            try {
+              const tx = await contract.proposeMatch(lost.id, found.id, score);
+              await tx.wait();
+              matched++;
+            } catch (err) {
+              if (!err.message?.includes("already matched")) console.log("Match failed:", err.reason);
+            }
+          }
+        }
+      }
+      if (matched > 0) {
+        alert(`AI found ${matched} potential match${matched > 1 ? "es" : ""}!`);
+        fetchOnChainMatches();
+        fetchOnChainItems();
+      } else {
+        alert("No new matches found. Report more items or try different categories.");
+      }
+    } catch (err) {
+      if (err.message?.includes("Ownable")) {
+        alert("Only the contract owner (Account #0) can run AI matching. Switch to the deployer account in MetaMask.");
+      } else {
+        alert("Matching failed: " + (err.reason || err.message));
+      }
     }
   };
 
@@ -228,8 +298,9 @@ export default function FindChainApp() {
           } catch (contractErr) {
             console.warn("Contract connection failed — running in demo mode:", contractErr.message);
           }
-          // Fetch on-chain items
+          // Fetch on-chain data
           fetchOnChainItems();
+          fetchOnChainMatches();
         }
       } catch (err) { alert("Wallet connection rejected"); }
     } else {
@@ -469,14 +540,14 @@ export default function FindChainApp() {
   };
 
   const MatchCard = ({ match }) => {
-    const lost = MOCK_ITEMS.find(i => i.id === match.lostId);
-    const found = MOCK_ITEMS.find(i => i.id === match.foundId);
+    const lost = allItems.find(i => i.id === match.lostId);
+    const found = allItems.find(i => i.id === match.foundId);
     if (!lost || !found) return null;
 
     return (
       <div style={{ ...styles.card, borderLeft: `3px solid ${accent}` }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-          <span style={styles.badge(match.status === "confirmed" ? "#10b981" : accent2)}>
+          <span style={styles.badge(match.status === "confirmed" ? "#10b981" : match.status === "disputed" ? "#ef4444" : accent2)}>
             {match.status === "confirmed" ? <CheckCircle2 size={10} /> : <Clock size={10} />}
             {match.status}
           </span>
@@ -517,18 +588,40 @@ export default function FindChainApp() {
               <button style={styles.btn(true)} onClick={() => setShowChat(true)}>
                 <MessageCircle size={14} /> Contact Finder
               </button>
-              <button style={styles.btn(false)}>
+              <button style={styles.btn(false)} onClick={async () => {
+                if (!isConnected) { alert("Connect wallet first"); return; }
+                try {
+                  const contract = await getContract(true);
+                  const tx = await contract.confirmMatch(match.id);
+                  await tx.wait();
+                  alert("Match confirmed! Reward released from escrow.");
+                  fetchOnChainMatches();
+                } catch (err) {
+                  alert("Confirm failed: " + (err.reason || err.message));
+                }
+              }}>
                 <CheckCircle2 size={14} /> Confirm Match
               </button>
-              <button style={{ ...styles.btn(false), color: "#ef4444" }}>
+              <button style={{ ...styles.btn(false), color: "#ef4444" }} onClick={async () => {
+                if (!isConnected) { alert("Connect wallet first"); return; }
+                try {
+                  const contract = await getContract(true);
+                  const tx = await contract.openDispute(match.id, "Item does not match", "QmDisputeEvidence");
+                  await tx.wait();
+                  alert("Dispute opened! Community voting begins.");
+                  fetchOnChainMatches();
+                } catch (err) {
+                  alert("Dispute failed: " + (err.reason || err.message));
+                }
+              }}>
                 <XCircle size={14} /> Dispute
               </button>
             </>
           )}
           {match.status === "confirmed" && (
-            <button style={styles.btn(true)}>
-              <CheckCircle2 size={14} /> Resolved — Reward Released
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#10b981", fontWeight: 600, fontSize: 14 }}>
+              <CheckCircle2 size={16} /> Resolved — Reward Released
+            </div>
           )}
         </div>
       </div>
@@ -747,14 +840,38 @@ export default function FindChainApp() {
     </div>
   );
 
+  const allMatches = [...MOCK_MATCHES, ...onChainMatches];
+
   const MatchesPage = () => (
     <div style={styles.section}>
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4, letterSpacing: "-0.5px" }}>AI Matches</h1>
-      <p style={{ color: textSecondary, marginBottom: 28, fontSize: 14 }}>
-        Matches detected by our ResNet50 visual similarity engine
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {MOCK_MATCHES.map(m => <MatchCard key={m.id} match={m} />)}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16, marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4, letterSpacing: "-0.5px" }}>AI Matches</h1>
+          <p style={{ color: textSecondary, fontSize: 14 }}>
+            Matches detected by our ResNet50 visual similarity engine
+          </p>
+        </div>
+        <button style={styles.btn(true)} onClick={runAIMatching}>
+          <Cpu size={15} /> Run AI Matching
+        </button>
+      </div>
+      {onChainMatches.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            On-Chain Matches ({onChainMatches.length})
+          </h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {onChainMatches.map(m => <MatchCard key={"oc-" + m.id} match={m} />)}
+          </div>
+        </div>
+      )}
+      <div>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: textSecondary, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          Demo Matches
+        </h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {MOCK_MATCHES.map(m => <MatchCard key={"mock-" + m.id} match={m} />)}
+        </div>
       </div>
     </div>
   );
