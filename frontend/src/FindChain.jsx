@@ -1486,6 +1486,40 @@ export default function FindChainApp() {
                 </div>
               )}
             </div>
+
+            {/* Action buttons based on role */}
+            {isConnected && item.status === "active" && (() => {
+              const isReporter = item.reporter?.toLowerCase().includes(walletAddress?.slice(2, 8).toLowerCase());
+              return (
+                <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
+                  {!isReporter && item.type === "lost" && (
+                    <button style={{ ...styles.btn(true), flex: 1, justifyContent: "center" }}
+                      onClick={() => { setPage("report"); }}>
+                      <Camera size={14} /> I Found This Item — Report & Match
+                    </button>
+                  )}
+                  {!isReporter && item.type === "found" && (
+                    <button style={{ ...styles.btn(true), flex: 1, justifyContent: "center" }}
+                      onClick={() => { setPage("report"); }}>
+                      <Search size={14} /> This Is My Item — Report & Claim
+                    </button>
+                  )}
+                  {isReporter && (
+                    <div style={{ fontSize: 13, color: textSecondary, fontStyle: "italic", display: "flex", alignItems: "center", gap: 6 }}>
+                      <Clock size={14} /> Your item — waiting for someone to find it
+                    </div>
+                  )}
+                  <button style={styles.btn(false)} onClick={() => setShowChat(true)}>
+                    <MessageCircle size={14} /> Chat
+                  </button>
+                </div>
+              );
+            })()}
+            {!isConnected && item.status === "active" && (
+              <div style={{ marginTop: 20, padding: 14, borderRadius: 10, background: `${accent}08`, border: `1px solid ${accent}20`, textAlign: "center" }}>
+                <p style={{ fontSize: 13, color: accent, fontWeight: 600, margin: 0 }}>Connect wallet to report a match or contact the reporter</p>
+              </div>
+            )}
           </div>
 
           {/* AI Match Panel */}
@@ -1500,7 +1534,7 @@ export default function FindChainApp() {
                   textAlign: "center", padding: 20, borderRadius: 12,
                   background: `${accent}06`, border: `1px solid ${accent}15`, marginBottom: 16,
                 }}>
-                  <div style={{ fontSize: 42, fontWeight: 900, color: accent }}>{item.similarity || 85}%</div>
+                  <div style={{ fontSize: 42, fontWeight: 900, color: accent }}>{item.similarity > 100 ? (item.similarity / 100).toFixed(1) : (item.similarity || 85)}%</div>
                   <div style={{ fontSize: 13, color: textSecondary }}>Visual Similarity Score</div>
                   <div style={{
                     height: 6, borderRadius: 3, marginTop: 12,
