@@ -119,7 +119,20 @@ export default function FindChainApp() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isConnected, setIsConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState("");
   const [animateIn, setAnimateIn] = useState(false);
+
+  const connectWallet = async () => {
+    if (isConnected) { setIsConnected(false); setWalletAddress(""); return; }
+    if (typeof window.ethereum !== "undefined") {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        if (accounts.length > 0) { setWalletAddress(accounts[0]); setIsConnected(true); }
+      } catch (err) { alert("Wallet connection rejected"); }
+    } else {
+      alert("MetaMask not detected. Please install MetaMask to connect your wallet.");
+    }
+  };
 
   useEffect(() => {
     setAnimateIn(false);
@@ -562,7 +575,7 @@ export default function FindChainApp() {
             <p style={{ color: textSecondary, marginBottom: 28, fontSize: 16, position: "relative" }}>
               Join thousands of users already recovering their belongings with AI.
             </p>
-            <button style={{ ...styles.btn(true), position: "relative" }} onClick={() => setIsConnected(true)}>
+            <button style={{ ...styles.btn(true), position: "relative" }} onClick={connectWallet}>
               <Wallet size={16} /> Connect Wallet & Get Started
             </button>
           </div>
@@ -645,6 +658,30 @@ export default function FindChainApp() {
   const ReportPage = () => {
     const [reportType, setReportType] = useState("lost");
     const [formData, setFormData] = useState({ title: "", description: "", category: "electronics", location: "", reward: "0" });
+    const [imagePreview, setImagePreview] = useState(null);
+    const [fileName, setFileName] = useState("");
+    const [isDragging, setIsDragging] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const handleFile = (file) => {
+      if (!file) return;
+      if (!file.type.startsWith("image/")) { alert("Please upload an image file (PNG, JPG)"); return; }
+      if (file.size > 10 * 1024 * 1024) { alert("File too large. Max 10MB."); return; }
+      setFileName(file.name);
+      const reader = new FileReader();
+      reader.onload = (e) => setImagePreview(e.target.result);
+      reader.readAsDataURL(file);
+    };
+
+    const handleSubmit = () => {
+      if (!imagePreview) { alert("Please upload an item photo"); return; }
+      if (!formData.title.trim()) { alert("Please enter an item title"); return; }
+      if (!formData.description.trim()) { alert("Please enter a description"); return; }
+      if (!formData.location.trim()) { alert("Please enter a location"); return; }
+      setSubmitted(true);
+      setTimeout(() => { setSubmitted(false); setImagePreview(null); setFileName(""); setFormData({ title: "", description: "", category: "electronics", location: "", reward: "0" }); }, 3000);
+    };
 
     return (
       <div style={styles.section}>
@@ -680,17 +717,39 @@ export default function FindChainApp() {
                 <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "block" }}>
                   Item Photo *
                 </label>
-                <div style={{
-                  border: `2px dashed ${cardBorder}`, borderRadius: 14, padding: 40,
-                  textAlign: "center", cursor: "pointer",
-                  background: isDark ? "rgba(0,240,255,0.02)" : "rgba(0,0,0,0.01)",
-                  transition: "all 0.2s",
-                }}>
-                  <Upload size={32} color={textSecondary} style={{ marginBottom: 12 }} />
-                  <p style={{ margin: 0, fontWeight: 600, marginBottom: 4 }}>Click to upload or drag & drop</p>
-                  <p style={{ margin: 0, fontSize: 12, color: textSecondary }}>
-                    PNG, JPG up to 10MB — AI will auto-extract visual features
-                  </p>
+                <input type="file" accept="image/*" ref={fileInputRef} style={{ display: "none" }}
+                  onChange={(e) => { if (e.target.files[0]) handleFile(e.target.files[0]); }} />
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => { e.preventDefault(); setIsDragging(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
+                  style={{
+                    border: `2px dashed ${isDragging ? accent : cardBorder}`, borderRadius: 14, padding: imagePreview ? 16 : 40,
+                    textAlign: "center", cursor: "pointer",
+                    background: isDragging ? "rgba(0,240,255,0.06)" : (isDark ? "rgba(0,240,255,0.02)" : "rgba(0,0,0,0.01)"),
+                    transition: "all 0.2s",
+                  }}>
+                  {imagePreview ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                      <img src={imagePreview} alt="Preview" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 10 }} />
+                      <div style={{ textAlign: "left" }}>
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: 14 }}>{fileName}</p>
+                        <p style={{ margin: 0, fontSize: 12, color: "#10b981", marginTop: 4 }}>Ready for AI feature extraction</p>
+                        <button onClick={(e) => { e.stopPropagation(); setImagePreview(null); setFileName(""); }} style={{
+                          background: "none", border: "none", color: "#ef4444", fontSize: 12, cursor: "pointer", padding: 0, marginTop: 4,
+                        }}>Remove</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload size={32} color={isDragging ? accent : textSecondary} style={{ marginBottom: 12 }} />
+                      <p style={{ margin: 0, fontWeight: 600, marginBottom: 4 }}>Click to upload or drag & drop</p>
+                      <p style={{ margin: 0, fontSize: 12, color: textSecondary }}>
+                        PNG, JPG up to 10MB — AI will auto-extract visual features
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -743,9 +802,19 @@ export default function FindChainApp() {
                 </div>
               )}
 
-              <button style={{ ...styles.btn(true), justifyContent: "center", padding: "14px 28px", marginTop: 8 }}>
+              {submitted && (
+                <div style={{
+                  padding: "14px 20px", borderRadius: 12, marginBottom: 8,
+                  background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)",
+                  display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#10b981",
+                }}>
+                  <CheckCircle2 size={18} /> Item reported successfully! AI matching will begin shortly.
+                </div>
+              )}
+              <button onClick={handleSubmit} disabled={submitted}
+                style={{ ...styles.btn(true), justifyContent: "center", padding: "14px 28px", marginTop: 8, opacity: submitted ? 0.5 : 1 }}>
                 <Shield size={16} />
-                {reportType === "lost" ? "Report Lost Item & Lock Reward" : "Report Found Item"}
+                {submitted ? "Submitting..." : (reportType === "lost" ? "Report Lost Item & Lock Reward" : "Report Found Item")}
               </button>
             </div>
           </div>
@@ -1109,7 +1178,8 @@ export default function FindChainApp() {
                     onClick={() => setShowChat(true)}>
                     <MessageCircle size={14} /> Contact
                   </button>
-                  <button style={{ ...styles.btn(false), flex: 1, justifyContent: "center" }}>
+                  <button style={{ ...styles.btn(false), flex: 1, justifyContent: "center" }}
+                    onClick={() => alert(`Match confirmed! ${item.reward !== "0" ? item.reward + " ETH released from escrow to finder." : "No reward attached."}`)}>
                     <CheckCircle2 size={14} /> Confirm
                   </button>
                 </div>
@@ -1429,9 +1499,9 @@ export default function FindChainApp() {
               </button>
               {showNotifications && <NotificationPanel />}
             </div>
-            <button style={styles.btn(true)} onClick={() => setIsConnected(!isConnected)}>
+            <button style={styles.btn(true)} onClick={connectWallet}>
               <Wallet size={14} />
-              {isConnected ? "0x7099...79C8" : "Connect"}
+              {isConnected ? (walletAddress ? `${walletAddress.slice(0,6)}...${walletAddress.slice(-4)}` : "0x7099...79C8") : "Connect"}
             </button>
           </div>
         </div>
