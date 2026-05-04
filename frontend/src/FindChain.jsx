@@ -140,6 +140,26 @@ export default function FindChainApp() {
     if (isConnected) { setIsConnected(false); setWalletAddress(""); return; }
     if (typeof window.ethereum !== "undefined") {
       try {
+        // Force switch to Hardhat network
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0x7A69" }], // 31337 in hex
+          });
+        } catch (switchErr) {
+          // Network doesn't exist — add it
+          if (switchErr.code === 4902 || switchErr.code === -32603) {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId: "0x7A69",
+                chainName: "Hardhat Local",
+                nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+                rpcUrls: ["http://127.0.0.1:8545"],
+              }],
+            });
+          }
+        }
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         if (accounts.length > 0) {
           setWalletAddress(accounts[0]);
@@ -147,14 +167,31 @@ export default function FindChainApp() {
           // Auto-register if not registered
           try {
             const contract = await getContract(true);
-            const profile = await contract.getUserProfile(accounts[0]);
-            if (!profile.isRegistered) {
-              const tx = await contract.registerUser();
-              await tx.wait();
+            try {
+              const profile = await contract.getUserProfile(accounts[0]);
+              if (!profile[7]) { // isRegistered is 8th field (index 7)
+                const tx = await contract.registerUser();
+                await tx.wait();
+                console.log("User registered on-chain");
+              } else {
+                console.log("User already registered");
+              }
+            } catch {
+              // getUserProfile failed — try registering anyway
+              try {
+                const tx = await contract.registerUser();
+                await tx.wait();
+                console.log("User registered on-chain (fallback)");
+              } catch (regErr2) {
+                if (regErr2.message?.includes("Already registered")) {
+                  console.log("Already registered");
+                } else {
+                  console.warn("Registration failed:", regErr2.message);
+                }
+              }
             }
-          } catch (regErr) {
-            // Ignore if already registered or contract not deployed
-            console.log("Registration check:", regErr.message);
+          } catch (contractErr) {
+            console.warn("Contract connection failed — running in demo mode:", contractErr.message);
           }
         }
       } catch (err) { alert("Wallet connection rejected"); }
@@ -690,7 +727,8 @@ export default function FindChainApp() {
     const [imagePreview, setImagePreview] = useState(null);
     const [fileName, setFileName] = useState("");
     const [isDragging, setIsDragging] = useState(false);
-    const [submitted, setSubmitted] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
     const fileInputRef = useRef(null);
 
     const handleFile = (file) => {
@@ -710,7 +748,7 @@ export default function FindChainApp() {
       if (!formData.description.trim()) { alert("Please enter a description"); return; }
       if (!formData.location.trim()) { alert("Please enter a location"); return; }
 
-      setSubmitted(true);
+      setSubmitting(true);
       try {
         const contract = await getContract(true);
         const ipfsImageHash = "Qm" + Array.from(crypto.getRandomValues(new Uint8Array(22))).map(b => b.toString(16).padStart(2, "0")).join("");
@@ -735,7 +773,8 @@ export default function FindChainApp() {
           );
         }
         await tx.wait();
-        alert(`Item reported on-chain! Tx: ${tx.hash.slice(0, 10)}...`);
+        setSubmitSuccess(true);
+        setTimeout(() => setSubmitSuccess(false), 5000);
         setImagePreview(null); setFileName("");
         setFormData({ title: "", description: "", category: "electronics", location: "", reward: "0" });
       } catch (err) {
@@ -748,7 +787,7 @@ export default function FindChainApp() {
           alert("Transaction failed: " + (err.reason || err.message || "Unknown error"));
         }
       }
-      setSubmitted(false);
+      setSubmitting(false);
     };
 
     return (
@@ -870,19 +909,19 @@ export default function FindChainApp() {
                 </div>
               )}
 
-              {submitted && (
+              {submitSuccess && (
                 <div style={{
                   padding: "14px 20px", borderRadius: 12, marginBottom: 8,
                   background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)",
                   display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#10b981",
                 }}>
-                  <CheckCircle2 size={18} /> Item reported successfully! AI matching will begin shortly.
+                  <CheckCircle2 size={18} /> Item reported on-chain! AI matching will begin shortly.
                 </div>
               )}
-              <button onClick={handleSubmit} disabled={submitted}
-                style={{ ...styles.btn(true), justifyContent: "center", padding: "14px 28px", marginTop: 8, opacity: submitted ? 0.5 : 1 }}>
+              <button onClick={handleSubmit} disabled={submitting}
+                style={{ ...styles.btn(true), justifyContent: "center", padding: "14px 28px", marginTop: 8, opacity: submitting ? 0.5 : 1 }}>
                 <Shield size={16} />
-                {submitted ? "Submitting..." : (reportType === "lost" ? "Report Lost Item & Lock Reward" : "Report Found Item")}
+                {submitting ? "Signing transaction..." : (reportType === "lost" ? "Report Lost Item & Lock Reward" : "Report Found Item")}
               </button>
             </div>
           </div>
