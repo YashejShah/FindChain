@@ -474,7 +474,7 @@ export default function FindChainApp() {
             color: "#000", padding: "4px 10px", borderRadius: 8,
             fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4,
           }}>
-            <Cpu size={12} /> {item.similarity}% AI Match
+            <Cpu size={12} /> {item.similarity > 100 ? (item.similarity / 100).toFixed(1) : item.similarity}% AI Match
           </div>
         )}
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
@@ -510,7 +510,7 @@ export default function FindChainApp() {
                 </span>
               )}
               <span style={{ fontSize: 12, color: textSecondary, display: "flex", alignItems: "center", gap: 4 }}>
-                <Clock size={12} /> {Math.floor((Date.now() - item.timestamp) / 3600000)}h ago
+                <Clock size={12} /> {(() => { const mins = Math.floor((Date.now() - item.timestamp) / 60000); if (mins < 1) return "just now"; if (mins < 60) return `${mins}m ago`; const hrs = Math.floor(mins / 60); if (hrs < 24) return `${hrs}h ago`; return `${Math.floor(hrs / 24)}d ago`; })()}
               </span>
             </div>
           </div>
