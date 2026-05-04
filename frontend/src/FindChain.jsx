@@ -124,7 +124,42 @@ export default function FindChainApp() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
+  const [onChainItems, setOnChainItems] = useState([]);
   const [animateIn, setAnimateIn] = useState(false);
+
+  const fetchOnChainItems = async () => {
+    try {
+      const contract = await getContract(false);
+      const totalItems = await contract.nextItemId();
+      const items = [];
+      for (let i = 0; i < Number(totalItems); i++) {
+        try {
+          const item = await contract.getItem(i);
+          items.push({
+            id: 1000 + i,
+            type: Number(item.itemType) === 0 ? "lost" : "found",
+            title: item.title,
+            category: item.category,
+            description: item.description,
+            location: item.location,
+            lat: Number(item.latitude) / 1e6,
+            lng: Number(item.longitude) / 1e6,
+            reward: ethers.formatEther(item.reward),
+            status: ["active", "matched", "resolved", "expired", "disputed"][Number(item.status)] || "active",
+            reporter: item.reporter.slice(0, 6) + "..." + item.reporter.slice(-4),
+            reporterName: "On-chain",
+            image: Number(item.itemType) === 0 ? "📦" : "📦",
+            timestamp: Number(item.timestamp) * 1000,
+            similarity: Number(item.aiSimilarityScore),
+            onChain: true,
+          });
+        } catch { /* skip invalid items */ }
+      }
+      setOnChainItems(items);
+    } catch (err) {
+      console.log("Could not fetch on-chain items:", err.message);
+    }
+  };
 
   const getContract = async (needsSigner = false) => {
     if (typeof window.ethereum === "undefined") throw new Error("MetaMask not installed");
@@ -193,6 +228,8 @@ export default function FindChainApp() {
           } catch (contractErr) {
             console.warn("Contract connection failed — running in demo mode:", contractErr.message);
           }
+          // Fetch on-chain items
+          fetchOnChainItems();
         }
       } catch (err) { alert("Wallet connection rejected"); }
     } else {
@@ -217,7 +254,8 @@ export default function FindChainApp() {
   const textSecondary = isDark ? "#8892a4" : "#666680";
   const surfaceHover = isDark ? "rgba(0, 240, 255, 0.05)" : "rgba(0,0,0,0.03)";
 
-  const filteredItems = MOCK_ITEMS.filter(item => {
+  const allItems = [...MOCK_ITEMS, ...onChainItems];
+  const filteredItems = allItems.filter(item => {
     if (matchFilter !== "all" && item.type !== matchFilter) return false;
     if (categoryFilter !== "all" && item.category !== categoryFilter) return false;
     if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -775,6 +813,7 @@ export default function FindChainApp() {
         await tx.wait();
         setSubmitSuccess(true);
         setTimeout(() => setSubmitSuccess(false), 5000);
+        fetchOnChainItems();
         setImagePreview(null); setFileName("");
         setFormData({ title: "", description: "", category: "electronics", location: "", reward: "0" });
       } catch (err) {
