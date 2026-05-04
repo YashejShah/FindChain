@@ -1630,19 +1630,29 @@ export default function FindChainApp() {
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
 
+    const markersRef = useRef([]);
+
     useEffect(() => {
-      if (!mapRef.current || mapInstanceRef.current) return;
-      const map = L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true }).setView([28.50, 77.40], 11);
-      mapInstanceRef.current = map;
+      if (!mapRef.current) return;
+      if (!mapInstanceRef.current) {
+        const map = L.map(mapRef.current, { zoomControl: true, scrollWheelZoom: true }).setView([28.50, 77.40], 11);
+        mapInstanceRef.current = map;
+        L.tileLayer(
+          isDark
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+          { attribution: '&copy; <a href="https://carto.com/">CARTO</a>', maxZoom: 19 }
+        ).addTo(map);
+        setTimeout(() => map.invalidateSize(), 200);
+      }
 
-      L.tileLayer(
-        isDark
-          ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        { attribution: '&copy; <a href="https://carto.com/">CARTO</a>', maxZoom: 19 }
-      ).addTo(map);
+      const map = mapInstanceRef.current;
+      // Clear old markers
+      markersRef.current.forEach(m => map.removeLayer(m));
+      markersRef.current = [];
 
-      MOCK_ITEMS.forEach(item => {
+      allItems.forEach(item => {
+        if (!item.lat || !item.lng) return;
         const icon = L.divIcon({
           className: "",
           iconSize: [36, 36],
@@ -1661,14 +1671,14 @@ export default function FindChainApp() {
               <span style="font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 8px;border-radius:4px;color:#fff;background:${item.type === "lost" ? "#ef4444" : "#10b981"}">${item.type}</span>
               <span style="font-size:11px;color:#888">${item.status}</span>
             </div>
-            ${item.reward !== "0" ? `<div style="font-size:12px;font-weight:600;color:#f59e0b">Reward: ${item.reward} ETH</div>` : ""}
+            ${item.reward !== "0" && item.reward !== "0.0" ? `<div style="font-size:12px;font-weight:600;color:#f59e0b">Reward: ${item.reward} ETH</div>` : ""}
           </div>
         `);
+        markersRef.current.push(marker);
       });
 
-      setTimeout(() => map.invalidateSize(), 200);
-      return () => { map.remove(); mapInstanceRef.current = null; };
-    }, []);
+      return () => {};
+    }, [allItems.length]);
 
     return (
       <div style={styles.section}>
@@ -1702,7 +1712,7 @@ export default function FindChainApp() {
             display: "flex", alignItems: "center", gap: 6,
           }}>
             <Globe size={14} color={accent} />
-            Showing {MOCK_ITEMS.length} items • Click markers for details
+            Showing {allItems.length} items • Click markers for details
           </div>
         </div>
       </div>
